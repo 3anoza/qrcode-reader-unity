@@ -24,7 +24,7 @@ public class ShowContent : MonoBehaviour
         text.transform.localRotation = Quaternion.identity;
 
         // Set the text to the content of the QR code
-        text.transform.Find("Canvas").Find("Text").GetComponent<Text>().text = content;
+        text.transform.Find("RawImage/Text").GetComponent<Text>().text = content;
 
         // Rotate to show text at the ideal side (on the "bottom")
         // First, create a vector that points from the game object to the camera
@@ -41,25 +41,25 @@ public class ShowContent : MonoBehaviour
         if (projection > bestLength)
         {
             bestRotation = 180;
-            bestLength = projection;
+            bestLength = projection / 2;
         }
         projection = Vector3.Dot(gameObject.transform.right, toCam);
         if (projection > bestLength)
         {
             bestRotation = -90;
-            bestLength = projection;
+            bestLength = projection / 2;
         }
         projection = Vector3.Dot(-gameObject.transform.forward, toCam);
         if (projection > bestLength)
         {
             bestRotation = 0;
-            bestLength = projection;
+            bestLength = projection / 2;
         }
         projection = Vector3.Dot(-gameObject.transform.right, toCam);
         if (projection > bestLength)
         {
             bestRotation = 90;
-            bestLength = projection;
+            bestLength = projection / 2;
         }
 
         text.transform.Rotate(Vector3.up, bestRotation, Space.Self);

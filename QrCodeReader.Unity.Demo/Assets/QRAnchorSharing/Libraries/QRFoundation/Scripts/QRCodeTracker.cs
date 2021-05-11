@@ -101,15 +101,15 @@ namespace QRFoundation
         public InversionAttempt inversionAttempt = InversionAttempt.Invert;
 
         [HideInInspector]
-        public OnCodeDetectedEvent onCodeDetected;
+        public OnCodeDetectedEvent onCodeDetected = new OnCodeDetectedEvent();
         [HideInInspector]
-        public OnCodeRegisteredEvent onCodeRegistered;
+        public OnCodeRegisteredEvent onCodeRegistered = new OnCodeRegisteredEvent();
         [HideInInspector]
-        public OnPoseRegisteredEvent onPoseRegistered;
+        public OnPoseRegisteredEvent onPoseRegistered = new OnPoseRegisteredEvent();
         [HideInInspector]
-        public OnCodeLostEvent onCodeLost;
+        public OnCodeLostEvent onCodeLost = new OnCodeLostEvent();
         [HideInInspector]
-        public OnStabilizeFailure onStabilizeFailure;
+        public OnStabilizeFailure onStabilizeFailure = new OnStabilizeFailure();
 
         [HideInInspector]
         public float maxScanResolution = 500 * 500;
@@ -326,10 +326,9 @@ namespace QRFoundation
             }
 
             // While a code is being tracked, smoothly interpolate the pose of the output game object to the updated scan results.
-            if (registeredString != null)
-            {
+            if (registeredString != null) {
                 registeredGameObject.transform.position = Vector3.Lerp(registeredGameObject.transform.position, registeredPose.position, 0.2f);
-                registeredGameObject.transform.rotation = Quaternion.Slerp(registeredGameObject.transform.rotation, registeredPose.rotation, 0.2f);
+                registeredGameObject.transform.rotation = Quaternion.Euler(0, 90 + registeredPose.rotation.eulerAngles.y, 0);
             }
         }
 
@@ -362,7 +361,8 @@ namespace QRFoundation
                     && (registeredString == null || !registeredString.Equals(lastContent)))
                     {
                         Register(intermediateSmoothed, lastContent);
-                        registeredGameObject.transform.localScale = Vector3.one * lastWidth;
+                        // scaling game object to qr code size
+                        //registeredGameObject.transform.localScale = Vector3.one * lastWidth;
                         trackingState = TrackingState.Registered;
                     }
                 }
@@ -392,15 +392,14 @@ namespace QRFoundation
                 {
                     if (!lastRegisteredString.Equals(this.lastContent))
                     {
-                        Unregister();
-                        trackingState = TrackingState.Stabilizing;
+                        Unregister(TrackingState.Stabilizing);
                     }
                 }
                 else
                 {
                     if (lastFoundTime < Time.realtimeSinceStartup - codeLossTimeout)
                     {
-                        Unregister();
+                        //Unregister();
                         ResetSamples();
                         trackingState = TrackingState.Searching;
                     }
@@ -512,7 +511,6 @@ namespace QRFoundation
                         QRLocation location = scanResult.position;
                         // The locations of the corners of the code
                         QRLocation bounds = scanResult.bounds;
-
                         // Map the locations of the feature points back onto the screen coordinates
                         Vector2 ul = new Vector2(scanArea.x + (float)location.topLeft.x * downsize, scanArea.y + scanArea.h - (float)location.topLeft.y * downsize);
                         Vector2 ur = new Vector2(scanArea.x + (float)location.topRight.x * downsize, scanArea.y + scanArea.h - (float)location.topRight.y * downsize);
@@ -672,6 +670,7 @@ namespace QRFoundation
             });
         }
 
+        private Pose _pose = default;
         /// <summary>
         /// For debugging purposes
         /// </summary>
@@ -688,6 +687,7 @@ namespace QRFoundation
                 GUI.TextField(new Rect(30, 10 + (i++) * dist, 700, 30), "Samples: " + (lastScanResult != null ? lastScanResult.samples.Length + "" : "/"));
                 GUI.TextField(new Rect(30, 10 + (i++) * dist, 700, 30), "Scan time: " + lastScanDuration);
                 GUI.TextField(new Rect(30, 10 + (i++) * dist, 700, 30), "Calc time: " + lastCalcDuration);
+                GUI.TextField(new Rect(30, 10 + (i++) * dist, 700, 30), "Model and Code rotation: " + registeredGameObject.transform.rotation.eulerAngles + " " + registeredPose.rotation.eulerAngles);
             }
         }
 
@@ -696,27 +696,27 @@ namespace QRFoundation
         /// </summary>
         void OnPostRender()
         {
-            //if (debugMode && lastScan != null)
-            //{
-            //    GL.PushMatrix();
-            //    debugMaterial.SetPass(0);
-            //    GL.LoadPixelMatrix();
+            if (debugMode && lastScan != null)
+            {
+                GL.PushMatrix();
+                debugMaterial.SetPass(0);
+                GL.LoadPixelMatrix();
 
-            //    GL.Begin(GL.LINES);
-            //    GL.Color(Color.red);
+                GL.Begin(GL.LINES);
+                GL.Color(Color.red);
 
-            //    GL.Vertex3(lastScan.x, lastScan.y, 0);
-            //    GL.Vertex3(lastScan.x, lastScan.y2, 0);
-            //    GL.Vertex3(lastScan.x, lastScan.y2, 0);
-            //    GL.Vertex3(lastScan.x2, lastScan.y2, 0);
-            //    GL.Vertex3(lastScan.x2, lastScan.y2, 0);
-            //    GL.Vertex3(lastScan.x2, lastScan.y, 0);
-            //    GL.Vertex3(lastScan.x2, lastScan.y, 0);
-            //    GL.Vertex3(lastScan.x, lastScan.y, 0);
+                GL.Vertex3(lastScan.x, lastScan.y, 0);
+                GL.Vertex3(lastScan.x, lastScan.y2, 0);
+                GL.Vertex3(lastScan.x, lastScan.y2, 0);
+                GL.Vertex3(lastScan.x2, lastScan.y2, 0);
+                GL.Vertex3(lastScan.x2, lastScan.y2, 0);
+                GL.Vertex3(lastScan.x2, lastScan.y, 0);
+                GL.Vertex3(lastScan.x2, lastScan.y, 0);
+                GL.Vertex3(lastScan.x, lastScan.y, 0);
 
-            //    GL.End();
-            //    GL.PopMatrix();
-            //}
+                GL.End();
+                GL.PopMatrix();
+            }
         }
 
         private Pose Smoothed(out float stdDev)
@@ -795,11 +795,12 @@ namespace QRFoundation
         /// <summary>
         /// Unregister the currently registered code.
         /// </summary>
-        public void Unregister()
+        public void Unregister(TrackingState state)
         {
             onCodeLost.Invoke();
             Destroy(registeredGameObject);
             registeredString = null;
+            trackingState = state;
         }
 
         /// <summary>
@@ -820,7 +821,7 @@ namespace QRFoundation
 
             registeredGameObject.transform.parent = transform.parent;
             registeredGameObject.transform.position = pose.position;
-            registeredGameObject.transform.rotation = pose.rotation;
+            registeredGameObject.transform.rotation = Quaternion.Euler(0, 90 + pose.rotation.eulerAngles.y, 0);// = pose.rotation;
 
             registeredString = content;
             registeredPose = pose;
